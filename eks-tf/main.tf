@@ -1,3 +1,27 @@
+
+locals {
+  ebs_csi_irsa_role = module.ebs_csi_irsa_role.iam_role_arn
+}
+
+
+module "ebs_csi_irsa_role" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 5.20"
+
+  role_name_prefix = "demo-ebs-csi-driver-"
+
+  attach_ebs_csi_policy = true
+
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks_bottlerocket.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:ebs-csi-controller-sa"]
+    }
+  }
+
+}
+
+
 module "eks_bottlerocket" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0"
@@ -11,6 +35,11 @@ module "eks_bottlerocket" {
     eks-pod-identity-agent = {}
     kube-proxy             = {}
     vpc-cni                = {}
+    aws-ebs-csi-driver = {
+      addon_version     = "v1.30.0-eksbuild.1"
+      resolve_conflicts = "OVERWRITE"
+      service_account_role_arn = local.ebs_csi_irsa_role
+    }
   }
 
   vpc_id     = module.vpc.vpc_id
